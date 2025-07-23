@@ -1,0 +1,47 @@
+name: smartnote
+description: "A smart note-taking application."
+# Prevent accidental publishing to pub.dev.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.3 <4.0.0' # Mettez votre version de SDK ici
+
+# --- SECTION DES DÉPENDANCES ---
+# C'est ici que vous listez tous les packages que votre application utilise.
+dependencies:
+  # La dépendance de base pour tout projet Flutter
+  flutter:
+    sdk: flutter
+
+  # Les packages que nous avons ajoutés
+  firebase_core: ^2.32.0 # (Vérifiez la dernière version)
+  firebase_auth: ^4.20.0
+  logger: ^2.3.0
+  
+  # La police d'icônes pour un style iOS
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+# --- SECTION DE CONFIGURATION FLUTTER ---
+# Cette section est au même niveau que 'dependencies', pas à l'intérieur.
+flutter:
+  # Indique que vous utilisez les icônes Material Design par défaut.
+  uses-material-design: true
+
+  # C'est ici que vous déclarez vos assets (images, polices, etc.).
+  assets:
+    - assets/ # Déclare le dossier entier, ce qui inclut 'google_logo.png'
+
+  # Exemple de déclaration de polices personnalisées (non utilisé pour l'instant)
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
