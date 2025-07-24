@@ -1,6 +1,5 @@
 // lib/screens/auth/signup_screen.dart
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smartnote/services/auth_service.dart';
 import 'package:smartnote/utils/snackbar_helper.dart';

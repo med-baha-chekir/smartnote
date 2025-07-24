@@ -20,6 +20,8 @@ dependencies:
   firebase_auth: ^4.20.0
   logger: ^2.3.0
   google_sign_in: ^6.2.1
+  cloud_firestore: ^4.10.0
+  intl: ^0.19.0
   
   # La police d'icônes pour un style iOS
   cupertino_icons: ^1.0.8
