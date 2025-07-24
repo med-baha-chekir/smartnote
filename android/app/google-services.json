@@ -12,7 +12,20 @@
           "package_name": "com.example.smartnote"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "315393699829-tco7ntapnpq7h4hiq0jgp09fh9if1jei.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.smartnote",
+            "certificate_hash": "d16179adf8be4d35552d18f415affcf5dc8383e4"
+          }
+        },
+        {
+          "client_id": "315393699829-qidpo7hito1em5clj1to6dkiau5lc0mu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAClj-zbCwntpXewMBqUDUEhfOp2EQKbKA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "315393699829-qidpo7hito1em5clj1to6dkiau5lc0mu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "315393699829-qk6me552c5t71a60j7mnbu55of7lsfei.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.smartnote"
+              }
+            }
+          ]
         }
       }
     }

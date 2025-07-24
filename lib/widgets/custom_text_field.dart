@@ -8,15 +8,17 @@ class CustomTextField extends StatelessWidget {
   final IconData? prefixIcon;
   final TextEditingController controller;
   final bool isPassword;
-  final Widget? suffixIcon; // Pour l'œil du mot de passe
+  final TextInputType keyboardType; // <-- VARIABLE AJOUTÉE
+  final Widget? suffixIcon;
 
   const CustomTextField({
     super.key,
     required this.label,
     required this.hintText,
-    this.prefixIcon,
     required this.controller,
+    this.prefixIcon,
     this.isPassword = false,
+    this.keyboardType = TextInputType.text, // <-- PARAMÈTRE AJOUTÉ
     this.suffixIcon,
   });
 
@@ -25,35 +27,23 @@ class CustomTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Le label au-dessus du champ
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.black87),
         ),
         const SizedBox(height: 8),
-        // Le champ de texte lui-même
-        TextField(
+        TextFormField(
           controller: controller,
           obscureText: isPassword,
+          keyboardType: keyboardType, // <-- PARAMÈTRE UTILISÉ ICI
           decoration: InputDecoration(
             hintText: hintText,
-            prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+            hintStyle: TextStyle(color: Colors.grey.shade400),
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.grey.shade600) : null,
             suffixIcon: suffixIcon,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.grey, width: 1.0),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5)),
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
