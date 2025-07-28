@@ -4,17 +4,61 @@ import 'package:flutter/material.dart';
 import 'package:smartnote/services/note_service.dart';
 
 class AddNoteScreen extends StatefulWidget {
-  const AddNoteScreen({super.key});
+  final String? noteId;
+  final String? initialTitle;
+  final String? initialContent;
+
+  const AddNoteScreen({
+    super.key,
+    this.noteId,
+    this.initialTitle,
+    this.initialContent,
+  });
 
   @override
   State<AddNoteScreen> createState() => _AddNoteScreenState();
 }
 
 class _AddNoteScreenState extends State<AddNoteScreen> {
+  final NoteService _noteService = NoteService();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final NoteService _noteService = NoteService();
 
+  bool get _isEditing => widget.noteId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _titleController.text = widget.initialTitle ?? '';
+      _contentController.text = widget.initialContent ?? '';
+    }
+  }
+
+  // --- LES FONCTIONS RESTENT LES MÊMES ---
+  void _saveNote() {
+    final title = _titleController.text;
+    final content = _contentController.text;
+    if (title.isEmpty && content.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    if (_isEditing) {
+      _noteService.updateNote(widget.noteId!, title, content);
+    } else {
+      _noteService.addNote(title, content);
+    }
+    Navigator.pop(context);
+  }
+
+  void _analyzeAndSummarize() {
+    // TODO: Connecter à la Cloud Function pour l'analyse
+    print('Analyse et résumé demandés...');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fonctionnalité d\'analyse bientôt disponible !')),
+    );
+  }
+  
   @override
   void dispose() {
     _titleController.dispose();
@@ -22,60 +66,85 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     super.dispose();
   }
 
+  // --- LE BUILD EST MODIFIÉ POUR LE NOUVEAU DESIGN ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Nouvelle Note'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: BackButton(color: Colors.black, onPressed: () => Navigator.pop(context)),
         actions: [
-          // Bouton pour sauvegarder la note
           IconButton(
             tooltip: 'Enregistrer',
-            icon: const Icon(Icons.save_outlined),
-            onPressed: () {
-              final title = _titleController.text;
-              final content = _contentController.text;
-
-              // On vérifie que le contenu n'est pas vide
-              if (title.isNotEmpty || content.isNotEmpty) {
-                // On appelle notre service pour enregistrer la note
-                _noteService.addNote(title, content);
-              }
-              print('Titre: $title, Contenu: $content');
-              // Après la sauvegarde, on ferme l'écran
-              Navigator.pop(context);
-            },
+            icon: Icon(Icons.check, color: Theme.of(context).primaryColor, size: 28),
+            onPressed: _saveNote, // La coche appelle la sauvegarde
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Champ pour le titre
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                hintText: 'Titre',
-                border: InputBorder.none, // Pas de bordure pour un look épuré
+      body: Column( // On divise l'écran en 2 parties
+        children: [
+          // 1. La partie éditable qui prend tout l'espace disponible
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ListView(
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      hintText: 'titre de votre note...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(fontSize: 24, color: Colors.grey),
+                    ),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(),
+                  TextField(
+                    controller: _contentController,
+                    decoration: const InputDecoration(
+                      hintText: 'Commencez à écrire ou collez votre texte ici...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    style: const TextStyle(fontSize: 16, height: 1.5),
+                    maxLines: null,
+                  ),
+                ],
               ),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            // Champ pour le contenu, qui prend tout l'espace restant
-            Expanded(
-              child: TextField(
-                controller: _contentController,
-                decoration: const InputDecoration(
-                  hintText: 'Commencez à écrire votre note ici...',
-                  border: InputBorder.none,
+          ),
+          // 2. La barre d'outils en bas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.format_bold)),
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.format_italic)),
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.format_list_bulleted)),
+                  ],
                 ),
-                maxLines: null, // Permet un nombre de lignes illimité
-                expands: true, // Fait en sorte que le champ remplisse l'Expanded
-              ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: _analyzeAndSummarize,
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 20, color: Colors.white),
+                  label: const Text('Analyze and Summarize', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

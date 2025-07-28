@@ -16,12 +16,13 @@ dependencies:
     sdk: flutter
 
   # Les packages que nous avons ajoutés
-  firebase_core: ^2.32.0 # (Vérifiez la dernière version)
-  firebase_auth: ^4.20.0
+  firebase_core: ^3.1.1 # (Vérifiez la dernière version)
+  firebase_auth: ^5.1.1
   logger: ^2.3.0
   google_sign_in: ^6.2.1
-  cloud_firestore: ^4.10.0
+  cloud_firestore: ^5.0.2
   intl: ^0.19.0
+  cloud_functions: ^5.0.1
   
   # La police d'icônes pour un style iOS
   cupertino_icons: ^1.0.8
