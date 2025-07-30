@@ -3,8 +3,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:smartnote/firebase_options.dart';
-// L'écran de démarrage par défaut
-// L'écran d'accueil après connexion
 import 'package:smartnote/services/auth_gate.dart'; // Le widget qui choisit quel écran afficher
 
 // Définition de la couleur principale de votre application pour un accès facile

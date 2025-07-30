@@ -1,24 +1,4 @@
 {
-  "flutter": {
-    "platforms": {
-      "android": {
-        "default": {
-          "projectId": "smartnote-22bc5",
-          "appId": "1:315393699829:android:a09c579791559a2ed07abc",
-          "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "smartnote-22bc5",
-          "configurations": {
-            "android": "1:315393699829:android:a09c579791559a2ed07abc",
-            "ios": "1:315393699829:ios:d5b7e741b50bcd50d07abc"
-          }
-        }
-      }
-    }
-  },
   "functions": [
     {
       "source": "functions",
@@ -30,6 +10,7 @@
         "firebase-debug.*.log",
         "*.local"
       ]
+      
     }
   ]
 }

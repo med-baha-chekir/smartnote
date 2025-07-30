@@ -15,6 +15,8 @@ class NoteDetailScreen extends StatefulWidget {
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
   final NoteService _noteService = NoteService();
+  String? _summary; // Pour stocker le résumé une fois généré
+  bool _isSummaryLoading = false;
   int _selectedTabIndex = 0; // 0: Note, 1: Résumé, 2: Quiz
   
   // On utilise un FutureBuilder pour charger les données une seule fois
@@ -96,7 +98,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       // Page 0: Note Complète
                       _buildFullNoteView(noteData['content'] ?? 'Aucun contenu.'),
                       // Page 1: Résumé IA
-                      _buildSummaryView(), // TODO: Implémenter la vue du résumé
+                      _buildSummaryView(noteData['content'] ?? 'Aucun contenu.'), // TODO: Implémenter la vue du résumé
                       // Page 2: Quiz IA
                       _buildQuizView(), // TODO: Implémenter la vue du quiz
                     ],
@@ -153,9 +155,26 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     );
   }
 
-  Widget _buildSummaryView() {
-    // Vue temporaire pour le résumé
-    return const Center(child: Text("La fonctionnalité de résumé IA sera bientôt disponible.", textAlign: TextAlign.center));
+  // Toujours dans _NoteDetailScreenState
+
+  Widget _buildSummaryView(String noteContent) {
+    if (_isSummaryLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_summary != null) {
+      // Si on a déjà un résumé, on l'affiche
+      return SingleChildScrollView(child: Text(_summary!, style: const TextStyle(fontSize: 16, height: 1.6)));
+    }
+
+    // Sinon, on affiche le bouton pour le générer
+    return Center(
+      child: ElevatedButton.icon(
+        onPressed: () => _generateSummary(noteContent),
+        icon: const Icon(Icons.auto_awesome_outlined),
+        label: const Text('Générer le résumé'),
+      ),
+    );
   }
 
   Widget _buildQuizView() {
@@ -183,5 +202,22 @@ void _navigateToEditScreen(Map<String, dynamic> noteData) async {
   setState(() {
     _noteFuture = _noteService.getNoteById(widget.noteId);
   });
+}
+
+void _generateSummary(String content) async {
+  if (_summary != null) return; // Si on a déjà un résumé, on ne le régénère pas
+
+  setState(() {
+    _isSummaryLoading = true;
+  });
+
+  final summaryResult = await _noteService.getSummary(content);
+
+  if (mounted) {
+    setState(() {
+      _summary = summaryResult;
+      _isSummaryLoading = false;
+    });
+  }
 }
 }
