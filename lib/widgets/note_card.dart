@@ -6,7 +6,7 @@ class NoteCard extends StatelessWidget {
   final String title;
   final String previewContent;
   final String date;
-  final String? subject; // Le sujet est optionnel
+  final String? subject;
   final VoidCallback onTap;
 
   const NoteCard({
@@ -18,99 +18,83 @@ class NoteCard extends StatelessWidget {
     required this.onTap,
   });
 
-  // --- MAP DE COULEURS POUR LES SUJETS ---
-  // Vous pouvez personnaliser cette liste à volonté.
+  // --- NOUVELLE PALETTE DE COULEURS PLUS DOUCES ---
   static final Map<String, Color> _subjectColors = {
-    'Histoire': Colors.blue.shade300,
-    'Biologie': Colors.green.shade300,
-    'Mathématiques': Colors.purple.shade300,
-    'Physique': Colors.orange.shade300,
-    'Chimie': Colors.red.shade300,
-    'Général': const Color.fromARGB(255, 148, 147, 147), // Une couleur par défaut
+    'Histoire': const Color(0xFFFDE68A), // Jaune doux
+    'Biologie': const Color(0xFFA7F3D0), // Vert doux
+    'Mathématiques': const Color(0xFFC4B5FD), // Violet doux
+    'Physique': const Color(0xFFFBCFE8), // Rose doux
+    'Général': Colors.grey.shade200,
   };
-  // --- FIN DE LA MAP ---
-
-  // Fonction pour obtenir la bonne couleur en fonction du sujet.
-  Color _getSubjectColor() {
-    // Si le sujet existe dans notre map, on utilise sa couleur.
-    // Sinon, on prend la couleur 'Général'.
+  
+  Color _getSubjectBackgroundColor() {
     return _subjectColors[subject] ?? _subjectColors['Général']!;
+  }
+
+  Color _getSubjectTextColor() {
+    // On peut rendre ça plus intelligent plus tard, mais pour l'instant on utilise du noir
+    return Colors.black87;
   }
 
   @override
   Widget build(BuildContext context) {
-    // On récupère la couleur une seule fois pour la réutiliser.
-    final Color subjectColor = _getSubjectColor();
-
     return Card(
-      elevation: 1.0,
+      elevation: 4.0, // Un peu plus d'ombre pour un effet "flottant"
+      shadowColor: Colors.black.withOpacity(0.8),
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: const Color.fromARGB(255, 255, 255, 255),
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Container(
-          // On ajoute un Container pour pouvoir dessiner la bordure.
-          decoration: BoxDecoration(
-            border: Border(
-              // *** AMÉLIORATION 1 : Bordure latérale colorée ***
-              left: BorderSide(color: subjectColor, width: 6),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16), // Padding ajusté pour la bordure
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title.isEmpty ? 'Nouvelle Note' : title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (subject != null && subject!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _getSubjectBackgroundColor(),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
-                        title.isEmpty ? 'Note sans titre' : title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        subject!,
+                        style: TextStyle(
+                          color: _getSubjectTextColor(),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 10), // Espace
-                    if (subject != null && subject!.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          // *** AMÉLIORATION 2 : Fond du tag coloré ***
-                          color: subjectColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          subject!,
-                          style: TextStyle(
-                            // *** AMÉLIORATION 3 : Texte du tag coloré ***
-                            color: subjectColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  previewContent.isEmpty ? 'Aucun contenu' : previewContent,
-                  style: const TextStyle(color: Colors.grey),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Modifié $date',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                previewContent.isEmpty ? 'Aucun contenu' : previewContent,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 15),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Modifié $date',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+            ],
           ),
         ),
       ),

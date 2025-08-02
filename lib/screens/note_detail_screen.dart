@@ -2,8 +2,11 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:smartnote/screens/add_note_screen.dart';
+import 'package:smartnote/screens/quiz_screen.dart';
 import 'package:smartnote/services/note_service.dart';
-import 'package:smartnote/screens/add_note_screen.dart'; // Importer AddNoteScreen pour la modification
+import 'package:smartnote/utils/snackbar_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   final String noteId;
@@ -15,12 +18,11 @@ class NoteDetailScreen extends StatefulWidget {
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
   final NoteService _noteService = NoteService();
-  String? _summary; // Pour stocker le résumé une fois généré
-  bool _isSummaryLoading = false;
-  int _selectedTabIndex = 0; // 0: Note, 1: Résumé, 2: Quiz
-  
-  // On utilise un FutureBuilder pour charger les données une seule fois
   late Future<DocumentSnapshot> _noteFuture;
+  
+  int _selectedTabIndex = 0;
+  bool _isSummaryLoading = false;
+  bool _isQuizLoading = false;
 
   @override
   void initState() {
@@ -28,12 +30,48 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _noteFuture = _noteService.getNoteById(widget.noteId);
   }
 
+  // --- Fonctions de gestion d'état ---
+  void _navigateToEditScreen(Map<String, dynamic> noteData) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddNoteScreen(
+          noteId: widget.noteId,
+          initialTitle: noteData['title'],
+          initialContent: noteData['content'],
+        ),
+      ),
+    );
+    _refreshNoteData();
+  }
+
+  void _generateSummary(Map<String, dynamic> noteData) async {
+    setState(() => _isSummaryLoading = true);
+    await _noteService.getSummary(widget.noteId, noteData['content'] ?? '');
+    _refreshNoteData();
+  }
+
+  void _generateQuiz(Map<String, dynamic> noteData) async {
+    setState(() => _isQuizLoading = true);
+    await _noteService.getQuiz(widget.noteId, noteData['content'] ?? '');
+    _refreshNoteData();
+  }
+
+  void _refreshNoteData() {
+    if (mounted) {
+      setState(() {
+        _noteFuture = _noteService.getNoteById(widget.noteId);
+        _isSummaryLoading = false;
+        _isQuizLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
       future: _noteFuture,
       builder: (context, snapshot) {
-        // Gérer les états de chargement et d'erreur
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
@@ -41,8 +79,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           return const Scaffold(body: Center(child: Text('Impossible de charger la note.')));
         }
 
-        // Si les données sont chargées, on récupère le titre
-        final noteData = snapshot.data!.data() as Map<String, dynamic>;
+        // --- GESTION SÉCURISÉE DES DONNÉES ---
+        final rawData = snapshot.data!.data();
+        final Map<String, dynamic> noteData = (rawData is Map<String, dynamic>) ? rawData : {};
         final title = noteData['title'] ?? 'Note sans titre';
 
         return Scaffold(
@@ -53,30 +92,32 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             leading: const BackButton(color: Colors.black),
             title: Text(title, style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
             actions: [
-              // --- BOUTON POUR MODIFIER ---
-              // Dans le FutureBuilder, à l'intérieur de l'AppBar
-            IconButton(
-              tooltip: 'Modifier la note',
-              icon: const Icon(Icons.edit_outlined, color: Colors.black),
-              onPressed: () {
-                // On appelle notre nouvelle fonction qui gère le rafraîchissement
-                final noteData = snapshot.data!.data() as Map<String, dynamic>;
-                _navigateToEditScreen(noteData);
-              },
-            ),
+              if (noteData['pdfUrl'] != null && (noteData['pdfUrl'] as String).isNotEmpty)
+                IconButton(
+                  tooltip: 'Ouvrir le PDF',
+                  icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.black),
+                  onPressed: () async {
+                    try {
+                      await launchUrl(Uri.parse(noteData['pdfUrl']), mode: LaunchMode.externalApplication);
+                    } catch (e) {
+                      if(mounted) SnackBarHelper.showError(context, 'Impossible d\'ouvrir le fichier PDF.');
+                    }
+                  },
+                ),
+              IconButton(
+                tooltip: 'Modifier la note',
+                icon: const Icon(Icons.edit_outlined, color: Colors.black),
+                onPressed: () => _navigateToEditScreen(noteData),
+              ),
             ],
           ),
           body: Column(
             children: [
-              // --- LA BARRE D'ONGLETS ---
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
                       _buildTabItem(context, 'Note complète', 0),
@@ -86,21 +127,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   ),
                 ),
               ),
-
-              // --- LE CONTENU AFFICHÉ SOUS LES ONGLETS ---
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  // On utilise IndexedStack pour garder l'état de chaque page des onglets
                   child: IndexedStack(
                     index: _selectedTabIndex,
                     children: [
-                      // Page 0: Note Complète
                       _buildFullNoteView(noteData['content'] ?? 'Aucun contenu.'),
-                      // Page 1: Résumé IA
-                      _buildSummaryView(noteData['content'] ?? 'Aucun contenu.'), // TODO: Implémenter la vue du résumé
-                      // Page 2: Quiz IA
-                      _buildQuizView(), // TODO: Implémenter la vue du quiz
+                      _buildSummaryView(noteData),
+                      _buildQuizView(noteData),
                     ],
                   ),
                 ),
@@ -112,35 +147,20 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     );
   }
 
-  // --- WIDGETS DE CONSTRUCTION ---
-
+  // --- Widgets de construction ---
   Widget _buildTabItem(BuildContext context, String text, int index) {
     final isSelected = _selectedTabIndex == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedTabIndex = index;
-          });
-        },
+        onTap: () => setState(() => _selectedTabIndex = index),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 2))]
-                : [],
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 2))] : [],
           ),
-          child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: Colors.black,
-              ),
-            ),
-          ),
+          child: Center(child: Text(text, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: Colors.black))),
         ),
       ),
     );
@@ -148,76 +168,107 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   Widget _buildFullNoteView(String content) {
     return SingleChildScrollView(
-      child: Text(
-        content,
-        style: const TextStyle(fontSize: 16, height: 1.6), // Interligne amélioré pour la lisibilité
-      ),
+      child: Text(content, style: const TextStyle(fontSize: 16, height: 1.6)),
     );
   }
 
-  // Toujours dans _NoteDetailScreenState
-
-  Widget _buildSummaryView(String noteContent) {
+  Widget _buildSummaryView(Map<String, dynamic> noteData) {
+    final String? summary = noteData['summary'];
     if (_isSummaryLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Génération du résumé...')]));
     }
-
-    if (_summary != null) {
-      // Si on a déjà un résumé, on l'affiche
-      return SingleChildScrollView(child: Text(_summary!, style: const TextStyle(fontSize: 16, height: 1.6)));
+    if (summary == null || summary.isEmpty) {
+      return Center(child: ElevatedButton.icon(onPressed: () => _generateSummary(noteData), icon: const Icon(Icons.auto_awesome_outlined), label: const Text('Générer le résumé')));
     }
-
-    // Sinon, on affiche le bouton pour le générer
-    return Center(
-      child: ElevatedButton.icon(
-        onPressed: () => _generateSummary(noteContent),
-        icon: const Icon(Icons.auto_awesome_outlined),
-        label: const Text('Générer le résumé'),
-      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Icon(Icons.auto_awesome_outlined, color: Theme.of(context).primaryColor), const SizedBox(width: 8), const Text('Résumé généré par IA ✨', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
+        const SizedBox(height: 16),
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: Text(summary, style: const TextStyle(fontSize: 16, height: 1.6))),
+        const SizedBox(height: 24),
+        Center(child: TextButton.icon(onPressed: () => _generateSummary(noteData), icon: const Icon(Icons.refresh), label: const Text('Régénérer le résumé'))),
+      ]),
     );
   }
 
-  Widget _buildQuizView() {
-    // Vue temporaire pour le quiz
-    return const Center(child: Text("La fonctionnalité de quiz IA sera bientôt disponible.", textAlign: TextAlign.center));
-  }
-  // Dans _NoteDetailScreenState
-
-void _navigateToEditScreen(Map<String, dynamic> noteData) async {
-  // On utilise 'await' ici. Le code va attendre que l'écran d'édition soit fermé.
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => AddNoteScreen(
-        noteId: widget.noteId,
-        initialTitle: noteData['title'],
-        initialContent: noteData['content'],
+  Widget _buildQuizView(Map<String, dynamic> noteData) {
+    final dynamic quizData = noteData['quiz'];
+    if (quizData == null || quizData is! List) {
+      if (_isQuizLoading) return const Center(child: CircularProgressIndicator());
+      return Center(child: ElevatedButton.icon(onPressed: () => _generateQuiz(noteData), icon: const Icon(Icons.quiz_outlined), label: const Text('Générer un Quiz')));
+    }
+    final List<Map<String, dynamic>> questions = List<Map<String, dynamic>>.from(quizData);
+    return Center( // <-- 1. On enveloppe tout dans un Center
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0), // On retire le padding vertical
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center, // 2. On centre les enfants verticalement
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Votre contenu (icône, titres, bouton, etc.) reste exactement le même ici
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.psychology_outlined, color: Theme.of(context).primaryColor, size: 40),
+            ),
+            const SizedBox(height: 24),
+            const Text('Quiz IA généré', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('${questions.length} questions ont été générées', style: const TextStyle(fontSize: 16, color: Colors.grey)),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => QuizScreen(questions: questions)));
+              },
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Commencer le Quiz'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E293B),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('Temps estimé : ${questions.length * 0.5}-${questions.length} minutes', style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            const Text('Difficulté : Intermédiaire', style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24), // Ajoute un peu d'espace
+          
+          TextButton(
+              // On désactive le bouton pendant le chargement pour éviter les double-clics
+              onPressed: _isQuizLoading ? null : () => _generateQuiz(noteData),
+              child: _isQuizLoading
+                  // Si on est en train de charger...
+                  ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // On affiche un petit indicateur de chargement
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Régénération en cours...'),
+                      ],
+                    )
+                  // Sinon, on affiche le texte et l'icône normaux
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh, size: 18),
+                        SizedBox(width: 8),
+                        Text('Régénérer le Quiz'),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-
-  // --- LE RAFRAÎCHISSEMENT MAGIQUE ---
-  // Une fois que l'on revient de l'écran d'édition, ce code s'exécute.
-  // On force le rechargement des données et on met à jour l'interface.
-  setState(() {
-    _noteFuture = _noteService.getNoteById(widget.noteId);
-  });
-}
-
-void _generateSummary(String content) async {
-  if (_summary != null) return; // Si on a déjà un résumé, on ne le régénère pas
-
-  setState(() {
-    _isSummaryLoading = true;
-  });
-
-  final summaryResult = await _noteService.getSummary(content);
-
-  if (mounted) {
-    setState(() {
-      _summary = summaryResult;
-      _isSummaryLoading = false;
-    });
+    );
   }
-}
-}
+  }
