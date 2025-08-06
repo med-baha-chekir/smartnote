@@ -1,12 +1,21 @@
 // lib/screens/quiz_screen.dart
 
 import 'package:flutter/material.dart';
+// Ajoutez l'import du service QuizService
+import 'package:smartnote/services/quiz_service.dart';
 
 class QuizScreen extends StatefulWidget {
   // On passe la liste des questions à cet écran
   final List<Map<String, dynamic>> questions;
+  final String noteId; // <-- RECEVOIR L'ID
+  final String subject; // <-- RECEVOIR LE SUJET
 
-  const QuizScreen({super.key, required this.questions});
+  const QuizScreen({
+    super.key,
+    required this.questions,
+    required this.noteId,
+    required this.subject,
+  });
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -42,6 +51,13 @@ class _QuizScreenState extends State<QuizScreen> {
   }
   
   void _showResultDialog() {
+    // On sauvegarde le résultat avant d'afficher la dialog
+    QuizService().saveQuizResult(
+      widget.noteId,
+      widget.subject,
+      _score,
+      widget.questions.length,
+    );
     showDialog(
       context: context,
       barrierDismissible: false,

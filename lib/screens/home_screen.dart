@@ -10,10 +10,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:smartnote/screens/add_note_screen.dart';
 import 'package:smartnote/screens/note_detail_screen.dart';
+import 'package:smartnote/screens/review_screen.dart';
+import 'package:smartnote/screens/search_screen.dart';
 import 'package:smartnote/services/auth_service.dart';
 import 'package:smartnote/services/note_service.dart';
 import 'package:smartnote/widgets/note_card.dart';
-import 'package:smartnote/screens/search_screen.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -76,142 +77,145 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildNotesView() {
     return Scaffold(
-      extendBody: true, // Permet au body de s'étendre derrière la nav bar
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Mes Notes', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28 )),
-
+        title: const Text('Mes Notes', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28)),
         actions: [
-          IconButton(icon: const Icon(Icons.search, size: 28, color: Colors.black), onPressed: () {Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchScreen()),
-              );}),
+          IconButton(icon: const Icon(Icons.search, size: 28, color: Colors.black), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen()))),
           IconButton(icon: const Icon(Icons.logout_outlined, color: Colors.black), onPressed: _authService.signOut),
-
         ],
-        
       ),
-      body: Container( // On met le fond ici
-        color: Colors.white,
-        child: Stack(
-          children: [
-            // Le contenu principal : la liste des notes
-            StreamBuilder<QuerySnapshot>(
-              stream: _noteService.getNotesStream(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      "Vous n'avez pas encore de notes.\nCliquez sur '+' pour commencer !",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+      body: Stack(
+        children: [
+          StreamBuilder<QuerySnapshot>(
+            stream: _noteService.getNotesStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    "Vous n'avez pas encore de notes.\nCliquez sur '+' pour commencer !",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                );
+              }
+              final notes = snapshot.data!.docs;
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 90.0),
+                itemCount: notes.length,
+                itemBuilder: (context, index) {
+                  final noteDocument = notes[index];
+                  final noteData = noteDocument.data() as Map<String, dynamic>;
+                  final noteId = noteDocument.id;
+                  final timestamp = noteData['createdAt'] as Timestamp?;
+                  String formattedDate = 'date inconnue';
+                  if (timestamp != null) {
+                    formattedDate = DateFormat.yMMMd('fr_FR').format(timestamp.toDate());
+                  }
+                  return Dismissible(
+                    key: Key(noteId),
+                    onDismissed: (direction) {
+                      _lastDeletedNote = noteDocument;
+                      _noteService.deleteNote(noteId);
+                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: const Text("Note supprimée"),
+                        action: SnackBarAction(
+                          label: 'ANNULER',
+                          onPressed: () {
+                            if (_lastDeletedNote != null) {
+                              final data = _lastDeletedNote!.data() as Map<String, dynamic>;
+                              _noteService.addNote(data['title'] ?? '', data['content'] ?? '',
+                                  subject: data['subject'], createdAt: data['createdAt'], summary: data['summary']);
+                            }
+                          },
+                        ),
+                      ));
+                    },
+                    background: Container(
+                        color: Colors.red.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        alignment: Alignment.centerRight,
+                        child: const Icon(Icons.delete_outline, color: Colors.white)),
+                    direction: DismissDirection.endToStart,
+                    child: NoteCard(
+                      title: noteData['title'] ?? '',
+                      previewContent: noteData['content'] ?? '',
+                      date: formattedDate,
+                      subject: noteData['subject'],
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NoteDetailScreen(noteId: noteId))),
                     ),
                   );
-                }
-                final notes = snapshot.data!.docs;
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: notes.length,
-                  itemBuilder: (context, index) {
-                    final noteDocument = notes[index];
-                    final noteData = noteDocument.data() as Map<String, dynamic>;
-                    final noteId = noteDocument.id;
-                    final timestamp = noteData['createdAt'] as Timestamp?;
-                    String formattedDate = 'date inconnue';
-                    if (timestamp != null) {
-                      formattedDate = DateFormat.yMMMd('fr_FR').format(timestamp.toDate());
-                    }
-                    return Dismissible(
-                      key: Key(noteId),
-                      onDismissed: (direction) {
-                        _lastDeletedNote = noteDocument;
-                        _noteService.deleteNote(noteId);
-                        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: const Text("Note supprimée"),
-                          action: SnackBarAction(
-                            label: 'ANNULER',
-                            onPressed: () {
-                              if (_lastDeletedNote != null) {
-                                final data = _lastDeletedNote!.data() as Map<String, dynamic>;
-                                _noteService.addNote(data['title'] ?? '', data['content'] ?? '',
-                                    subject: data['subject'], createdAt: data['createdAt'], summary: data['summary']);
-                              }
-                            },
-                          ),
-                        ));
-                      },
-                      background: Container(
-                          color: Colors.red.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          alignment: Alignment.centerRight,
-                          child: const Icon(Icons.delete_outline, color: Colors.white)),
-                      direction: DismissDirection.endToStart,
-                      child: NoteCard(
-                        title: noteData['title'] ?? '',
-                        previewContent: noteData['content'] ?? '',
-                        date: formattedDate,
-                        subject: noteData['subject'],
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => NoteDetailScreen(noteId: noteId))),
-                      ),
-                    );
-                  },
-                );
-              },
+                },
+              );
+            },
+          ),
+          AnimatedOpacity(
+            opacity: _isMenuOpen ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: IgnorePointer(
+              ignoring: !_isMenuOpen,
+              child: GestureDetector(
+                onTap: _toggleMenu,
+                child: Container(color: Colors.black.withOpacity(0.5)),
+              ),
             ),
-
-            // --- SECTION DU MENU FLOTTANT ANIMÉ ---
-            AnimatedOpacity(
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeInOut,
+            bottom: _isMenuOpen ? 100 : -300,
+            left: 20,
+            right: 20,
+            child: AnimatedOpacity(
               opacity: _isMenuOpen ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: IgnorePointer(
-                ignoring: !_isMenuOpen,
-                child: GestureDetector(
-                  onTap: _toggleMenu,
-                  child: Container(color: Colors.black.withOpacity(0.5)),
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildMenuItem(Icons.edit_outlined, 'Nouvelle Note', 'Ouvre l\'éditeur de texte', _navigateToAddNote),
+                    const Divider(),
+                    _buildMenuItem(Icons.picture_as_pdf_outlined, 'Importer un PDF', 'Extrait le texte d\'un fichier PDF', _pickAndUploadPdf),
+                    const Divider(),
+                    _buildMenuItem(Icons.camera_alt_outlined, 'Scanner un document', 'Ouvre l\'appareil photo pour l\'OCR', () {}),
+                  ],
                 ),
               ),
             ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeInOut,
-              bottom: _isMenuOpen ? 100 : -300,
-              left: 20,
-              right: 20,
-              child: AnimatedOpacity(
-                opacity: _isMenuOpen ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildMenuItem(Icons.edit_outlined, 'Nouvelle Note', 'Ouvre l\'éditeur de texte', _navigateToAddNote),
-                      const Divider(),
-                      _buildMenuItem(Icons.picture_as_pdf_outlined, 'Importer un PDF', 'Extrait le texte d\'un fichier PDF', _pickAndUploadPdf),
-                      const Divider(),
-                      _buildMenuItem(Icons.camera_alt_outlined, 'Scanner un document', 'Ouvre l\'appareil photo pour l\'OCR', () {}),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> _screens = [
+      _buildNotesView(),
+      const ReviewScreen(),
+      const SearchScreen(),
+      const Scaffold(body: Center(child: Text('Profil'))),
+    ];
+
+    return Scaffold(
+      extendBody: true,
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleMenu,
@@ -239,16 +243,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(Icons.home, 'Accueil', 0, onPressed: () {  }),
-                _buildNavItem(Icons.school, 'Réviser', 1, onPressed: () {  }),
+                _buildNavItem(Icons.home, 'Accueil', 0),
+                _buildNavItem(Icons.school, 'Réviser', 1),
                 const SizedBox(width: 40),
-                _buildNavItem(Icons.search, 'Rechercher', 2 , onPressed:() {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SearchScreen()),
-                  );
-                }),
-                _buildNavItem(Icons.person, 'Profil', 3, onPressed: () {  }),
+                _buildNavItem(Icons.search, 'Rechercher', 2),
+                _buildNavItem(Icons.person, 'Profil', 3 ),
               ],
             ),
           ),
@@ -266,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, {required Null Function() onPressed}) {
+  Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
     final color = isSelected ? Theme.of(context).primaryColor : Colors.grey;
     return IconButton(

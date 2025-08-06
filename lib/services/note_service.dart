@@ -231,5 +231,42 @@ Future<List<Map<String, dynamic>>?> getQuiz(String noteId, String text) async {
         .where('title', isLessThanOrEqualTo: '$query\uf8ff')
         .snapshots();
   }
-}
+  /// Récupère un flux de notes filtrées par matière (subject).
+  Stream<QuerySnapshot> getNotesStreamBySubject(String subject) {
+    final User? user = _auth.currentUser;
+    if (user == null) return Stream.empty();
 
+    return _firestore
+        .collection('notes')
+        .where('userId', isEqualTo: user.uid)
+        .where('subject', isEqualTo: subject) // Le filtre magique
+        .snapshots();
+  }
+
+  // --- LA NOUVELLE FONCTION DOIT ÊTRE ICI ---
+
+
+  Stream<QuerySnapshot> getQuizResultsStream() {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      return Stream.empty();
+    }
+    // --- ON AJOUTE LE FILTRE PAR UTILISATEUR ---
+    return _firestore
+        .collection('quizResults')
+        .where('userId', isEqualTo: user.uid) // <-- LA LIGNE MAGIQUE
+        .snapshots();
+  }
+    Future<QuerySnapshot> getAllQuizResultsFuture() async {
+  final User? user = _auth.currentUser;
+  if (user == null) {
+    // On retourne un Future qui se résout avec un QuerySnapshot vide.
+    // Pour cela, on fait une requête impossible qui ne retournera jamais de résultats.
+    return _firestore.collection('quizResults').where('userId', isEqualTo: 'user-is-not-logged-in').get();
+  }
+  return _firestore
+      .collection('quizResults')
+      .where('userId', isEqualTo: user.uid)
+      .get(); // .get() pour un Future, .snapshots() pour
+}
+}

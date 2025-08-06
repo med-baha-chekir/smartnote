@@ -53,8 +53,27 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   void _generateQuiz(Map<String, dynamic> noteData) async {
     setState(() => _isQuizLoading = true);
-    await _noteService.getQuiz(widget.noteId, noteData['content'] ?? '');
-    _refreshNoteData();
+    final quizResult = await _noteService.getQuiz(widget.noteId, noteData['content'] ?? '');
+    
+    if (mounted) {
+      if (quizResult != null && quizResult.isNotEmpty) {
+        _refreshNoteData();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuizScreen(
+              questions: quizResult,
+              noteId: widget.noteId, // <-- ON PASSE L'ID DE LA NOTE ACTUELLE
+              subject: noteData['subject'] ?? 'Général', // <-- ON PASSE LE SUJET ACTUEL
+            ),
+          ),
+        );
+        setState(() => _isQuizLoading = false);
+      } else {
+        SnackBarHelper.showError(context, 'Impossible de générer le quiz pour cette note.');
+        setState(() => _isQuizLoading = false);
+      }
+    }
   }
 
   void _refreshNoteData() {
@@ -62,7 +81,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       setState(() {
         _noteFuture = _noteService.getNoteById(widget.noteId);
         _isSummaryLoading = false;
-        _isQuizLoading = false;
+        // _isQuizLoading n'est pas remis à false ici, car la navigation intervient après
       });
     }
   }
@@ -73,15 +92,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       future: _noteFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(backgroundColor: Colors.white, body: Center(child: CircularProgressIndicator()));
         }
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-          return const Scaffold(body: Center(child: Text('Impossible de charger la note.')));
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(backgroundColor: Colors.white, body: Center(child: Text('Note introuvable.')));
         }
 
-        // --- GESTION SÉCURISÉE DES DONNÉES ---
-        final rawData = snapshot.data!.data();
-        final Map<String, dynamic> noteData = (rawData is Map<String, dynamic>) ? rawData : {};
+        final noteData = snapshot.data!.data() as Map<String, dynamic>;
         final title = noteData['title'] ?? 'Note sans titre';
 
         return Scaffold(
@@ -90,7 +107,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             leading: const BackButton(color: Colors.black),
-            title: Text(title, style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
+            title: Text(title, style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
             actions: [
               if (noteData['pdfUrl'] != null && (noteData['pdfUrl'] as String).isNotEmpty)
                 IconButton(
@@ -129,7 +146,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
                   child: IndexedStack(
                     index: _selectedTabIndex,
                     children: [
@@ -199,14 +216,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return Center(child: ElevatedButton.icon(onPressed: () => _generateQuiz(noteData), icon: const Icon(Icons.quiz_outlined), label: const Text('Générer un Quiz')));
     }
     final List<Map<String, dynamic>> questions = List<Map<String, dynamic>>.from(quizData);
-    return Center( // <-- 1. On enveloppe tout dans un Center
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0), // On retire le padding vertical
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // 2. On centre les enfants verticalement
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Votre contenu (icône, titres, bouton, etc.) reste exactement le même ici
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -222,7 +238,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => QuizScreen(questions: questions)));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QuizScreen(
+                      questions: questions,
+                      noteId: widget.noteId, // <-- AJOUTER L'ID DE LA NOTE
+                      subject: noteData['subject'] ?? 'Général', // <-- AJOUTER LE SUJET
+                    ),
+                  ),
+                );
               },
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text('Commencer le Quiz'),
@@ -235,18 +260,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             const SizedBox(height: 24),
             Text('Temps estimé : ${questions.length * 0.5}-${questions.length} minutes', style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 8),
-            const Text('Difficulté : Intermédiaire', style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24), // Ajoute un peu d'espace
-          
-          TextButton(
-              // On désactive le bouton pendant le chargement pour éviter les double-clics
+            const Text('Difficulté : Intermédiaire', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            TextButton(
               onPressed: _isQuizLoading ? null : () => _generateQuiz(noteData),
               child: _isQuizLoading
-                  // Si on est en train de charger...
                   ? const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // On affiche un petit indicateur de chargement
                         SizedBox(
                           width: 16,
                           height: 16,
@@ -256,7 +277,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                         Text('Régénération en cours...'),
                       ],
                     )
-                  // Sinon, on affiche le texte et l'icône normaux
                   : const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -271,4 +291,4 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       ),
     );
   }
-  }
+}

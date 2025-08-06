@@ -2,10 +2,10 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:smartnote/services/note_service.dart';
-import 'package:smartnote/widgets/note_card.dart'; // On réutilise notre belle NoteCard
-import 'package:smartnote/screens/note_detail_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:smartnote/screens/note_detail_screen.dart';
+import 'package:smartnote/services/note_service.dart';
+import 'package:smartnote/widgets/note_card.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -17,7 +17,30 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final NoteService _noteService = NoteService();
   final _searchController = TextEditingController();
-  String _query = '';
+
+  List<QueryDocumentSnapshot> _searchResults = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {});
+    });
+  }
+
+  List<QueryDocumentSnapshot> _filterNotes(List<QueryDocumentSnapshot> allNotes) {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) {
+      return allNotes;
+    }
+    return allNotes.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final title = (data['title'] ?? '').toLowerCase();
+      final content = (data['content'] ?? '').toLowerCase();
+      final summary = (data['summary'] ?? '').toLowerCase();
+      return title.contains(query) || content.contains(query) || summary.contains(query);
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -29,67 +52,57 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Rechercher par titre...',
-            border: InputBorder.none,
-            // On ajoute une icône pour effacer la recherche
-            suffixIcon: _query.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _query = '';
-                      });
-                    },
-                  )
-                : null,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Recherche',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Rechercher titre, contenu, résumé...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                filled: true,
+                fillColor: Color(0xFFF5F5F5),
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
           ),
-          style: const TextStyle(fontSize: 18),
-          onChanged: (value) {
-            // On met à jour l'état à chaque fois que l'utilisateur tape
-            setState(() {
-              _query = value;
-            });
-          },
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Le flux est maintenant dynamique et dépend de la recherche
-        stream: _noteService.searchNotes(_query),
+        stream: _noteService.getNotesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Text(
-                _query.isEmpty
-                    ? 'Commencez à taper pour rechercher.'
-                    : 'Aucun résultat pour "$_query"',
-              ),
-            );
+            return const Center(child: Text('Aucune note à rechercher.'));
           }
 
-          final notes = snapshot.data!.docs;
+          _searchResults = _filterNotes(snapshot.data!.docs);
+
+          if (_searchResults.isEmpty) {
+            return Center(child: Text('Aucun résultat pour "${_searchController.text}"'));
+          }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: notes.length,
+            itemCount: _searchResults.length,
             itemBuilder: (context, index) {
-              final noteData = notes[index].data() as Map<String, dynamic>;
-              final noteId = notes[index].id;
-              
-              // On réutilise notre code de formatage de date
+              final noteData = _searchResults[index].data() as Map<String, dynamic>;
+              final noteId = _searchResults[index].id;
               final timestamp = noteData['createdAt'] as Timestamp?;
               String formattedDate = 'date inconnue';
               if (timestamp != null) {
                 formattedDate = DateFormat.yMMMd('fr_FR').format(timestamp.toDate());
               }
-
               return NoteCard(
                 title: noteData['title'] ?? '',
                 previewContent: noteData['content'] ?? '',

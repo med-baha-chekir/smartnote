@@ -1,6 +1,7 @@
 // lib/widgets/note_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:smartnote/utils/app_colors.dart'; // <-- On importe notre fichier de couleurs
 
 class NoteCard extends StatelessWidget {
   final String title;
@@ -18,32 +19,17 @@ class NoteCard extends StatelessWidget {
     required this.onTap,
   });
 
-  // --- NOUVELLE PALETTE DE COULEURS PLUS DOUCES ---
-  static final Map<String, Color> _subjectColors = {
-    'Histoire': const Color(0xFFFDE68A), // Jaune doux
-    'Biologie': const Color(0xFFA7F3D0), // Vert doux
-    'Mathématiques': const Color(0xFFC4B5FD), // Violet doux
-    'Physique': const Color(0xFFFBCFE8), // Rose doux
-    'Général': Colors.grey.shade200,
-  };
-  
-  Color _getSubjectBackgroundColor() {
-    return _subjectColors[subject] ?? _subjectColors['Général']!;
-  }
-
-  Color _getSubjectTextColor() {
-    // On peut rendre ça plus intelligent plus tard, mais pour l'instant on utilise du noir
-    return Colors.black87;
-  }
-
   @override
   Widget build(BuildContext context) {
+    // On récupère la couleur depuis notre classe centralisée
+    final Color subjectColor = AppColors.getColorForSubject(subject);
+
     return Card(
-      elevation: 4.0, // Un peu plus d'ombre pour un effet "flottant"
-      shadowColor: Colors.black.withOpacity(0.8),
+      elevation: 4.0,
+      shadowColor: Colors.black.withOpacity(0.4),
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: const Color.fromARGB(255, 255, 255, 255),
+      color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
@@ -68,13 +54,13 @@ class NoteCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _getSubjectBackgroundColor(),
+                        color: subjectColor, // On utilise la couleur ici
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         subject!,
                         style: TextStyle(
-                          color: _getSubjectTextColor(),
+                          color: Colors.black87,
                           fontWeight: FontWeight.w500,
                           fontSize: 12,
                         ),
