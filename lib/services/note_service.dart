@@ -269,4 +269,9 @@ Future<List<Map<String, dynamic>>?> getQuiz(String noteId, String text) async {
       .where('userId', isEqualTo: user.uid)
       .get(); // .get() pour un Future, .snapshots() pour
 }
+Stream<DocumentSnapshot> getUserDocumentStream() {
+  final user = _auth.currentUser;
+  if (user == null) return Stream.empty();
+  return _firestore.collection('users').doc(user.uid).snapshots();
+}
 }
