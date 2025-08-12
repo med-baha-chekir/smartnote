@@ -166,3 +166,48 @@ export const generateQuiz = functions
       throw new functions.https.HttpsError("internal", "Erreur lors de la génération du quiz.");
     }
   });
+export const analyzeAndEnrichNote = functions
+  .runWith(runtimeOptions)
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "...");
+    }
+    const text = data.text;
+    if (!text || typeof text !== "string" || text.length < 50) {
+      throw new functions.https.HttpsError("invalid-argument", "Le texte est trop court pour être analysé.");
+    }
+
+    try {
+      // On lance toutes les tâches de l'IA en parallèle pour gagner du temps !
+      const [analysis, summary, quiz] = await Promise.all([
+        callGeminiForAnalysis(text),
+        callGeminiForSummary(text),
+        callGeminiForQuiz(text), // On va créer cette fonction helper
+      ]);
+
+      // On retourne tous les résultats en un seul objet
+      return {
+        title: analysis.title,
+        subject: analysis.subject,
+        summary: summary,
+        quiz: quiz,
+      };
+
+    } catch (error) {
+      console.error("Erreur lors de l'enrichissement de la note:", error);
+      throw new functions.https.HttpsError("internal", "Erreur lors de l'analyse complète.");
+    }
+  });
+
+async function callGeminiForQuiz(text: string): Promise<any> {
+  const prompt = `Ta seule et unique tâche est de générer un quiz... (votre prompt de quiz complet ici)`;
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const jsonString = response.text().trim().replace(/^```json\s*|```\s*$/g, "");
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("Erreur de parsing JSON pour le quiz:", jsonString);
+    return []; // Retourne un tableau vide en cas d'erreur
+  }
+}

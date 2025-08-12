@@ -25,6 +25,9 @@ dependencies:
   cloud_functions: ^5.0.1
   firebase_storage: ^12.4.10 
   file_picker: any
+  image_picker: ^1.1.2 # Pour choisir une image
+  google_mlkit_commons: ^0.7.0
+  google_mlkit_text_recognition: ^0.12.0
   
   # La police d'icônes pour un style iOS
   cupertino_icons: ^1.0.8

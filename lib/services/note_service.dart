@@ -41,47 +41,49 @@ final FirebaseAuth _auth = FirebaseAuth.instanceFor(app: Firebase.app());
   // Dans note_service.dart
 
 // On modifie la signature de la fonction
-Future<void> addNote(String title, String content, {String? subject, Timestamp? createdAt, String? summary}) async {
+Future<void> addNote(String title, String content, {
+  String? subject,
+  Timestamp? createdAt,
+  String? summary,
+  List<Map<String, dynamic>>? quiz,
+}) async {
   final User? user = _auth.currentUser;
-  if (user == null) {
-    print("Erreur: Utilisateur non connecté.");
-    return;
-  }
+  if (user == null) return;
 
   try {
-    // On utilise une Map pour construire les données, c'est plus propre
-    final Map<String, dynamic> noteData = {
+    await _firestore.collection('notes').add({
       'title': title,
       'content': content,
+      'subject': subject,
+      'summary': summary,
+      'quiz': quiz,
       'createdAt': createdAt ?? Timestamp.now(),
       'userId': user.uid,
-    };
-
-    // On ajoute les champs optionnels seulement s'ils ne sont pas null
-    if (subject != null) {
-      noteData['subject'] = subject;
-    }
-    if (summary != null) {
-      noteData['summary'] = summary;
-    }
-    
-    // On ajoute le document avec toutes les données
-    await _firestore.collection('notes').add(noteData);
-
-    print("Note ajoutée/restaurée avec succès !");
+    });
   } catch (e) {
-    print("Erreur lors de l'ajout/restauration de la note: $e");
+    print("Erreur lors de l'ajout de la note: $e");
   }
 }
 
   /// Met à jour une note existante.
-  Future<void> updateNote(String noteId, String title, String content) {
-    return _firestore.collection('notes').doc(noteId).update({
+  Future<void> updateNote(String noteId, String title, String content, {
+  String? subject,
+  String? summary,
+  List<Map<String, dynamic>>? quiz,
+}) async {
+  try {
+    await _firestore.collection('notes').doc(noteId).update({
       'title': title,
       'content': content,
+      'subject': subject,
+      'summary': summary,
+      'quiz': quiz,
       'lastUpdatedAt': Timestamp.now(),
     });
+  } catch (e) {
+    print("Erreur lors de la mise à jour de la note: $e");
   }
+}
 
   /// Supprime une note.
   Future<void> deleteNote(String noteId) {
@@ -274,4 +276,41 @@ Stream<DocumentSnapshot> getUserDocumentStream() {
   if (user == null) return Stream.empty();
   return _firestore.collection('users').doc(user.uid).snapshots();
 }
+Future<Map<String, dynamic>?> analyzeAndEnrichNote(String text) async {
+  try {
+    final callable = _functions.httpsCallable('analyzeAndEnrichNote');
+    final result = await callable.call<Map<String, dynamic>>({'text': text});
+    return result.data;
+  } catch (e) {
+    print("Erreur lors de l'enrichissement de la note: $e");
+    return null;
+  }
+}
+Future<void> addNoteFromMap(Map<String, dynamic> data) async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      print("Erreur: Utilisateur non connecté.");
+      return;
+    }
+    try {
+      // On ajoute les champs système que l'utilisateur ne peut pas modifier
+      data['userId'] = user.uid;
+      data['createdAt'] = Timestamp.now();
+      
+      await _firestore.collection('notes').add(data);
+    } catch (e) {
+      print("Erreur lors de l'ajout de la note: $e");
+    }
+  }
+
+  /// Met à jour une note existante à partir d'une Map de données.
+  Future<void> updateNoteFromMap(String noteId, Map<String, dynamic> data) async {
+    try {
+      // On ajoute la date de dernière modification
+      data['lastUpdatedAt'] = Timestamp.now();
+      await _firestore.collection('notes').doc(noteId).update(data);
+    } catch (e) {
+      print("Erreur lors de la mise à jour de la note: $e");
+    }
+  }
 }

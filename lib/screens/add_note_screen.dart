@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:smartnote/services/note_service.dart';
+import 'package:smartnote/utils/snackbar_helper.dart';
 
 class AddNoteScreen extends StatefulWidget {
   final String? noteId;
@@ -28,65 +29,126 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   bool _isLoading = false;
+   String? _generatedSummary;
+  List<Map<String, dynamic>>? _generatedQuiz;
+  String? _generatedSubject;
 
   bool get _isEditing => widget.noteId != null;
 
   @override
   void initState() {
-    super.initState();
-    if (_isEditing) {
-      _titleController.text = widget.initialTitle ?? '';
-      _contentController.text = widget.initialContent ?? '';
-    }
+  super.initState();
+  
+  // On vérifie d'abord si on est en mode édition
+  if (_isEditing) {
+    _titleController.text = widget.initialTitle ?? '';
+    _contentController.text = widget.initialContent ?? '';
+  } 
+  // SINON, on vérifie si un contenu initial a été passé (cas de l'OCR)
+  else if (widget.initialContent != null) {
+    _contentController.text = widget.initialContent!;
   }
+}
 
   // --- LES FONCTIONS RESTENT LES MÊMES ---
   // Dans _AddNoteScreenState
 
-void _saveNote() async { // La fonction doit être 'async'
+void _saveNote() async {
+  // Si on est déjà en train de sauvegarder, on ne fait rien pour éviter les double-clics
   if (_isLoading) return;
 
-  // --- DÉBUT DU CHARGEMENT ---
-  setState(() {
-    _isLoading = true;
-  });
+  setState(() { _isLoading = true; });
 
   String title = _titleController.text.trim();
   final String content = _contentController.text.trim();
-  String? subject; // On prépare une variable pour le sujet
+  
+  // On utilise directement les variables d'état qui ont pu être remplies par _analyzeAndSummarize
+  String? subject = _generatedSubject; 
+  String? summary = _generatedSummary;
+  List<Map<String, dynamic>>? quiz = _generatedQuiz;
 
-  if (title.isEmpty && content.isNotEmpty) {
-    // Si le titre est vide, on appelle l'IA !
+  // On vérifie si une analyse est nécessaire (titre vide et aucune analyse préalable)
+  if (title.isEmpty && content.isNotEmpty && subject == null) {
     final analysis = await _noteService.analyzeNote(content);
     if (analysis != null) {
       title = analysis['title'] ?? '';
       subject = analysis['subject'];
+      // On met à jour le contrôleur du titre pour que l'utilisateur le voie
+      _titleController.text = title; 
     }
   }
 
   if (title.isEmpty && content.isEmpty) {
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
     return;
   }
 
+  // On appelle la bonne méthode de sauvegarde en passant toutes les données
   if (_isEditing) {
-    // TODO: Gérer la mise à jour du sujet lors de l'édition
-    await _noteService.updateNote(widget.noteId!, title, content);
+    await _noteService.updateNote(
+      widget.noteId!,
+      title,
+      content,
+      subject: subject,
+      summary: summary,
+      quiz: quiz,
+    );
   } else {
-    await _noteService.addNote(title, content, subject: subject);
+    await _noteService.addNote(
+      title,
+      content,
+      subject: subject,
+      summary: summary,
+      quiz: quiz,
+    );
   }
 
-  if (mounted) {
-    Navigator.pop(context);
-  }
+  if (mounted) Navigator.pop(context);
 }
 
-  void _analyzeAndSummarize() {
-    // TODO: Connecter à la Cloud Function pour l'analyse
-    print('Analyse et résumé demandés...');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fonctionnalité d\'analyse bientôt disponible !')),
-    );
+    void _analyzeAndSummarizeAndSave() async {
+    // Si on est déjà en train de charger, on ne fait rien
+    if (_isLoading) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    final content = _contentController.text.trim();
+    if (content.isEmpty) {
+      SnackBarHelper.showError(context, 'Le contenu est vide pour l\'analyse.');
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // 1. On appelle l'IA pour enrichir la note
+    final results = await _noteService.analyzeAndEnrichNote(content);
+
+    if (!mounted) return;
+
+    if (results != null) {
+      // 2. On prépare TOUTES les données à sauvegarder
+      final Map<String, dynamic> dataToSave = {
+        'title': results['title'] ?? 'Titre généré par IA',
+        'content': content, // On garde le contenu original
+        'subject': results['subject'],
+        'summary': results['summary'],
+        'quiz': results['quiz'],
+      };
+
+      // 3. On sauvegarde les données (création ou mise à jour)
+      if (_isEditing) {
+        await _noteService.updateNoteFromMap(widget.noteId!, dataToSave);
+      } else {
+        await _noteService.addNoteFromMap(dataToSave);
+      }
+      
+      // 4. On quitte l'écran pour revenir à la liste
+      Navigator.pop(context);
+
+    } else {
+      // Si l'analyse a échoué, on arrête le chargement et on affiche une erreur
+      setState(() => _isLoading = false);
+      SnackBarHelper.showError(context, 'L\'analyse a échoué.');
+    }
   }
   
   @override
@@ -188,7 +250,7 @@ Widget build(BuildContext context) {
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
-                    onPressed: _analyzeAndSummarize,
+                    onPressed: _analyzeAndSummarizeAndSave,
                     icon: const Icon(Icons.auto_awesome_outlined, size: 20),
                     label: const Text('Analyze and Summarize'),
                     style: ElevatedButton.styleFrom(

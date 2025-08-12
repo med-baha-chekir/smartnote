@@ -12,6 +12,8 @@ import 'package:smartnote/screens/search_screen.dart';
 import 'package:smartnote/services/note_service.dart';
 import 'package:smartnote/screens/profile_screen.dart';
 import 'package:smartnote/services/user_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -74,6 +76,66 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
   }
+  Future<void> _scanDocument(ImageSource source) async {
+  // On ferme le menu avant de faire quoi que ce soit
+  if (_isMenuOpen) _toggleMenu();
+
+  final ImagePicker _picker = ImagePicker();
+  
+  // 1. L'utilisateur choisit une image
+  final XFile? imageFile = await _picker.pickImage(source: source);
+
+  if (imageFile == null) {
+    // L'utilisateur a annulé
+    return;
+  }
+
+  // On peut afficher un indicateur de chargement
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Analyse de l\'image en cours...')),
+  );
+
+  try {
+    // 2. On prépare l'image et l'outil de reconnaissance
+    final inputImage = InputImage.fromFilePath(imageFile.path);
+    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    
+    // 3. On traite l'image pour extraire le texte
+    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+    
+    // On ferme l'outil après usage
+    await textRecognizer.close();
+    
+    // On récupère le texte brut
+    final String extractedText = recognizedText.text;
+
+     // --- AJOUTEZ CES LIGNES DE DÉBOGAGE ---
+  print('--- OCR RESULT ---');
+  print('Le texte extrait contient ${extractedText.length} caractères.');
+  print('Texte extrait : "$extractedText"');
+  print('--- END OCR RESULT ---');
+  // --- FIN DES LIGNES DE DÉBOGAGE ---
+
+    // 4. On navigue vers l'écran d'ajout de note avec le texte pré-rempli
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddNoteScreen(
+            // On passe le texte extrait au champ de contenu
+            initialContent: extractedText,
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'analyse de l\'image : $e')),
+      );
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +177,37 @@ class _MainScreenState extends State<MainScreen> {
                     const Divider(),
                     _buildMenuItem(Icons.picture_as_pdf_outlined, 'Importer un PDF', 'Extrait le texte d\'un fichier PDF', _pickAndUploadPdf),
                     const Divider(),
-                    _buildMenuItem(Icons.camera_alt_outlined, 'Scanner un document', 'Ouvre l\'appareil photo pour l\'OCR', () {}),
+                    _buildMenuItem(
+  Icons.camera_alt_outlined,
+  'Scanner un document',
+  'Prendre une photo ou choisir une image',
+  () {
+    // Affiche une boîte de dialogue pour le choix de la source
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Wrap(
+        children: <Widget>[
+          ListTile(
+            leading: const Icon(Icons.camera_alt),
+            title: const Text('Appareil photo'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _scanDocument(ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library),
+            title: const Text('Galerie'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _scanDocument(ImageSource.gallery);
+            },
+          ),
+        ],
+      ),
+    );
+  },
+),
                   ],
                 ),
               ),
