@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:smartnote/screens/add_note_screen.dart';
 import 'package:smartnote/screens/quiz_screen.dart';
 import 'package:smartnote/services/note_service.dart';
+import 'package:smartnote/utils/app_colors.dart';
 import 'package:smartnote/utils/snackbar_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -130,6 +131,19 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ),
           body: Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: Icon(Icons.label_outline, size: 16),
+                    label: Text(noteData['subject'] ?? 'Général'),
+                    onPressed: () {
+                      _showSubjectPicker(noteData['subject'] ?? 'Général');
+                    },
+                  ),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Container(
@@ -291,4 +305,31 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       ),
     );
   }
+  // DANS _NoteDetailScreenState
+
+void _showSubjectPicker(String currentSubject) {
+  showModalBottomSheet(
+    context: context,
+    builder: (context) {
+      return Wrap(
+        children: AppColors.availableSubjects.map((subject) {
+          return ListTile(
+            title: Text(subject),
+            // On peut mettre une icône pour montrer le sujet actuel
+            trailing: subject == currentSubject ? const Icon(Icons.check, color: Colors.green) : null,
+            onTap: () {
+              // 1. On met à jour le sujet dans Firestore
+              _noteService.updateNoteSubject(widget.noteId, subject);
+              // 2. On ferme la feuille du bas
+              Navigator.pop(context);
+              // 3. On rafraîchit l'écran pour voir le changement
+              _refreshNoteData();
+            },
+          );
+        }).toList(),
+      );
+    },
+  );
+}
+  
 }

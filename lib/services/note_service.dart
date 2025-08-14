@@ -86,9 +86,42 @@ Future<void> addNote(String title, String content, {
 }
 
   /// Supprime une note.
-  Future<void> deleteNote(String noteId) {
-    return _firestore.collection('notes').doc(noteId).delete();
+Future<void> deleteNote(String noteId) async {
+  final User? user = _auth.currentUser;
+  print('--- DÉBUT DE LA SUPPRESSION ---');
+  print('Tentative de suppression de la note avec l\'ID: $noteId');
+
+  try {
+    // Étape 1 : Supprimer la note
+    await _firestore.collection('notes').doc(noteId).delete();
+    print('✅ SUCCÈS: Document de la note supprimé de la collection "notes".');
+
+    // Étape 2 : Trouver le quiz associé
+    print('Recherche du quiz associé avec noteId == $noteId...');
+    final querySnapshot = await _firestore
+        .collection('quizResults')
+        .where('userId', isEqualTo: user!.uid) 
+        .where('noteId', isEqualTo: noteId)
+        .limit(1)
+        .get();
+
+    // Étape 3 : Supprimer le quiz s'il est trouvé
+    if (querySnapshot.docs.isNotEmpty) {
+      final quizResultDoc = querySnapshot.docs.first;
+      print('✅ TROUVÉ: Résultat de quiz trouvé avec l\'ID de document: ${quizResultDoc.id}');
+      await quizResultDoc.reference.delete();
+      print('✅ SUCCÈS: Document du résultat de quiz supprimé.');
+    } else {
+      print('INFO: Aucun résultat de quiz trouvé pour cette note. Aucune suppression nécessaire.');
+    }
+    
+    print('--- FIN DE LA SUPPRESSION ---');
+
+  } catch (e) {
+    print('❌ ERREUR lors de la suppression en cascade : $e');
+    print('--- FIN DE LA SUPPRESSION AVEC ERREUR ---');
   }
+}
 
   // --- NOUVELLE FONCTION POUR APPELER L'IA DE RÉSUMÉ ---
 
@@ -313,4 +346,9 @@ Future<void> addNoteFromMap(Map<String, dynamic> data) async {
       print("Erreur lors de la mise à jour de la note: $e");
     }
   }
+  Future<void> updateNoteSubject(String noteId, String newSubject) {
+  return _firestore.collection('notes').doc(noteId).update({
+    'subject': newSubject,
+  });
+}
 }

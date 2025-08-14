@@ -1,12 +1,13 @@
+// lib/screens/profile_screen.dart
 
-import 'dart:async'; // Pour StreamSubscription
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smartnote/services/auth_service.dart';
-import 'package:smartnote/services/note_service.dart'; 
+import 'package:smartnote/services/note_service.dart';
+import 'package:smartnote/services/user_service.dart'; // Importez UserService
 
-// --- ON TRANSFORME L'ÉCRAN EN STATEFULWIDGET ---
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -17,19 +18,17 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final NoteService _noteService = NoteService();
   final AuthService _authService = AuthService();
+  final UserService _userService = UserService(); // Instance de UserService
   final User? _currentUser = FirebaseAuth.instance.currentUser;
-  StreamSubscription? _userSubscription;
 
-  // Abonnements pour l'écoute en temps réel
   StreamSubscription? _notesSubscription;
   StreamSubscription? _quizResultsSubscription;
-  
-  // Variables pour stocker nos données
+  StreamSubscription? _userSubscription;
+
   int _notesCount = 0;
   int _summariesCount = 0;
   int _quizzesCount = 0;
-  // TODO: Logique pour la série d'étude
-  int _studyStreak = 0; 
+  int _studyStreak = 0;
   bool _isLoading = true;
 
   @override
@@ -39,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _listenToDataChanges() {
-    // S'abonner aux notes
+    // S'abonner aux notes pour compter les notes et les résumés
     _notesSubscription = _noteService.getNotesStream().listen((snapshot) {
       int summaryCount = 0;
       for (var doc in snapshot.docs) {
@@ -57,22 +56,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     });
 
-    // S'abonner aux résultats de quiz
+    // S'abonner aux résultats de quiz pour les compter
     _quizResultsSubscription = _noteService.getQuizResultsStream().listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          _quizzesCount = snapshot.docs.length;
-        });
+      if (mounted) setState(() => _quizzesCount = snapshot.docs.length);
+    });
+
+    // S'abonner au document utilisateur pour la série d'étude
+    _userSubscription = _userService.getUserDocumentStream().listen((snapshot) {
+      if (mounted && snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() => _studyStreak = data['studyStreak'] ?? 0);
       }
     });
-    _userSubscription = _noteService.getUserDocumentStream().listen((snapshot) {
-    if (mounted && snapshot.exists) {
-      final data = snapshot.data() as Map<String, dynamic>;
-      setState(() {
-        _studyStreak = data['studyStreak'] ?? 0;
-      });
-    }
-  });
   }
 
   @override
@@ -85,10 +80,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AuthService authService = AuthService();
-    final User? currentUser = FirebaseAuth.instance.currentUser;
     final String email = _currentUser?.email ?? 'Pas d\'email';
-    final String displayName = _currentUser?.displayName ?? 'Nouvel Utilisateur';
+    final String displayName = _currentUser?.displayName ?? email.split('@')[0];
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -98,68 +91,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Mon Profil', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 28)),
       ),
       body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            _buildUserCard(displayName, email),
-            const SizedBox(height: 2),
-
-            const Text('Vos Statistiques', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
               children: [
-                // --- ON UTILISE LES VRAIES DONNÉES ICI ---
-                _buildStatCard(Icons.article_outlined, _notesCount.toString(), 'Notes Créées', Colors.blue),
-                _buildStatCard(Icons.auto_awesome_outlined, _summariesCount.toString(), 'Résumés IA', Colors.orange),
-                _buildStatCard(Icons.quiz_outlined, _quizzesCount.toString(), 'Quiz Complétés', Colors.green),
-                _buildStatCard(Icons.local_fire_department_outlined, '$_studyStreak jours', 'Série d\'Étude', Colors.red),
+                _buildUserCard(displayName, email),
+                const SizedBox(height: 24),
+                const Text('Vos Statistiques', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildStatCard(Icons.article_outlined, _notesCount.toString(), 'Notes Créées', Colors.blue),
+                    _buildStatCard(Icons.auto_awesome_outlined, _summariesCount.toString(), 'Résumés IA', Colors.orange),
+                    _buildStatCard(Icons.quiz_outlined, _quizzesCount.toString(), 'Quiz Complétés', Colors.green),
+                    _buildStatCard(Icons.local_fire_department_outlined, '$_studyStreak jours', 'Série d\'Étude', Colors.red),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
               ],
             ),
-            
-
-          // --- SECTION PARAMÈTRES ---
-         // _buildSectionTitle('Paramètres'),
-          //_buildSettingsCard(
-          //  children: [
-          //    _buildSettingsItem(Icons.dark_mode_outlined, 'Thème Sombre', trailing: Switch(value: false, onChanged: (val) {})),
-          ///    _buildSettingsItem(Icons.notifications_outlined, 'Notifications', onTap: () {}),
-          //  ],
-          //),
-          //const SizedBox(height: 16),
-          //const Divider(height: 1, indent: 16, endIndent: 16),
-
-          _buildSettingsItem(
-                Icons.logout, 
-                'Se Déconnecter', 
-                color: Colors.red, // On le met en rouge pour indiquer une action finale
-                onTap: () {
-                  // On appelle la fonction signOut de notre service d'authentification
-                  _authService.signOut();
-                  // Le AuthGate s'occupera de la redirection vers LoginScreen
-                }
-              ),
-          const SizedBox(height: 80)
-          ],
-        
-      ),
     );
   }
 
-  // --- WIDGETS DE CONSTRUCTION POUR UN DESIGN PROPRE ---
-
   Widget _buildUserCard(String name, String email) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
           CircleAvatar(
@@ -172,11 +135,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text(email, style: const TextStyle(color: Colors.grey)),
+                Text(email, style: const TextStyle(color: Colors.grey), overflow: TextOverflow.ellipsis),
               ],
             ),
+          ),
+          // --- BOUTON DE DÉCONNEXION DÉPLACÉ ICI ---
+          IconButton(
+            tooltip: 'Se déconnecter',
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: _authService.signOut,
           ),
         ],
       ),

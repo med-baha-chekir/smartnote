@@ -6,7 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
+  Stream<DocumentSnapshot> getUserDocumentStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.empty();
+    return _firestore.collection('users').doc(user.uid).snapshots();
+  }
   /// Met à jour la série d'étude de l'utilisateur et retourne la nouvelle valeur.
   Future<int> updateUserStudyStreak() async {
     final user = _auth.currentUser;

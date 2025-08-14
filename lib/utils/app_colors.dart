@@ -2,6 +2,15 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  static final List<String> availableSubjects = [
+    'Général',
+    'Histoire',
+    'Biologie',
+    'Mathématiques',
+    'Physique',
+    // Ajoutez d'autres matières ici
+  ];
+  
   static final Map<String, Color> subjectColors = {
     'Histoire': const Color(0xFFFDE68A),
     'Biologie': const Color(0xFFA7F3D0),

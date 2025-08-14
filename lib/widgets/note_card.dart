@@ -1,7 +1,7 @@
 // lib/widgets/note_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:smartnote/utils/app_colors.dart'; // <-- On importe notre fichier de couleurs
+import 'package:smartnote/utils/app_colors.dart';
 
 class NoteCard extends StatelessWidget {
   final String title;
@@ -9,6 +9,10 @@ class NoteCard extends StatelessWidget {
   final String date;
   final String? subject;
   final VoidCallback onTap;
+  
+  // --- DÉBUT DE L'AJOUT ---
+  final int? rating; // Nouveau paramètre optionnel pour la note
+  // --- FIN DE L'AJOUT ---
 
   const NoteCard({
     super.key,
@@ -17,16 +21,32 @@ class NoteCard extends StatelessWidget {
     required this.date,
     this.subject,
     required this.onTap,
+    this.rating, // <-- On l'ajoute au constructeur
   });
+
+  // --- DÉBUT DE L'AJOUT ---
+  /// Construit la rangée de 5 étoiles en fonction de la note.
+  Widget _buildStarRating(int rating) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+          color: Colors.amber.shade600,
+          size: 18,
+        );
+      }),
+    );
+  }
+  // --- FIN DE L'AJOUT ---
 
   @override
   Widget build(BuildContext context) {
-    // On récupère la couleur depuis notre classe centralisée
     final Color subjectColor = AppColors.getColorForSubject(subject);
 
     return Card(
       elevation: 4.0,
-      shadowColor: Colors.black.withOpacity(0.4),
+      shadowColor: Colors.black.withOpacity(0.08), // J'ai adouci l'ombre pour un meilleur look
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
@@ -54,7 +74,7 @@ class NoteCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: subjectColor, // On utilise la couleur ici
+                        color: subjectColor,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -76,10 +96,24 @@ class NoteCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 16),
-              Text(
-                'Modifié $date',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              
+              // --- DÉBUT DE LA MODIFICATION ---
+              // On remplace le simple Text par une Row pour aligner la date et les étoiles.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Modifié $date',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+                  
+                  // On affiche les étoiles seulement si un 'rating' est fourni.
+                  if (rating != null)
+                    _buildStarRating(rating!),
+                ],
               ),
+              // --- FIN DE LA MODIFICATION ---
             ],
           ),
         ),
