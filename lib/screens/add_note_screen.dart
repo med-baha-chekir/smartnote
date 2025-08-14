@@ -241,13 +241,7 @@ Widget build(BuildContext context) {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.format_bold)),
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.format_italic)),
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.format_list_bulleted)),
-                    ],
-                  ),
+                 
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     onPressed: _analyzeAndSummarizeAndSave,

@@ -103,10 +103,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(16.0),
           children: [
             _buildUserCard(displayName, email),
-            const SizedBox(height: 24),
+            const SizedBox(height: 2),
 
             const Text('Vos Statistiques', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 2),
             GridView.count(
               crossAxisCount: 2,
               crossAxisSpacing: 16,
@@ -124,15 +124,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             
 
           // --- SECTION PARAMÈTRES ---
-          _buildSectionTitle('Paramètres'),
-          _buildSettingsCard(
-            children: [
-              _buildSettingsItem(Icons.dark_mode_outlined, 'Thème Sombre', trailing: Switch(value: false, onChanged: (val) {})),
-              _buildSettingsItem(Icons.notifications_outlined, 'Notifications', onTap: () {}),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, indent: 16, endIndent: 16),
+         // _buildSectionTitle('Paramètres'),
+          //_buildSettingsCard(
+          //  children: [
+          //    _buildSettingsItem(Icons.dark_mode_outlined, 'Thème Sombre', trailing: Switch(value: false, onChanged: (val) {})),
+          ///    _buildSettingsItem(Icons.notifications_outlined, 'Notifications', onTap: () {}),
+          //  ],
+          //),
+          //const SizedBox(height: 16),
+          //const Divider(height: 1, indent: 16, endIndent: 16),
 
           _buildSettingsItem(
                 Icons.logout, 

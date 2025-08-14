@@ -14,6 +14,7 @@ import 'package:smartnote/screens/profile_screen.dart';
 import 'package:smartnote/services/user_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:smartnote/utils/snackbar_helper.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -67,6 +68,42 @@ class _MainScreenState extends State<MainScreen> {
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
+
+      final snackBar = SnackBar(
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          const Text('Import et analyse du PDF en cours...'),
+        ],
+      ),
+      duration: const Duration(minutes: 5), // Durée très longue pour qu'elle reste visible
+    );
+
+    // On garde une référence à notre SnackBar pour pouvoir la cacher plus tard
+    final snackBarController = ScaffoldMessenger.of(context).showSnackBar(snackBar);
+
+    try {
+      // 2. On lance l'upload et on attend que ce soit fini
+      await _noteService.uploadPdf(file);
+
+      // 3. Si l'upload réussit, on cache la SnackBar de chargement...
+      snackBarController.close();
+      
+      // ...et on en affiche une nouvelle pour confirmer le succès.
+      if (mounted) {
+        SnackBarHelper.show(context, 'PDF importé ! La nouvelle note apparaîtra bientôt.');
+      }
+    } catch (e) {
+      // 4. Si une erreur se produit...
+      // On cache la SnackBar de chargement...
+      snackBarController.close();
+
+      // ...et on affiche un message d'erreur.
+      if (mounted) {
+        SnackBarHelper.showError(context, 'L\'import du PDF a échoué.');
+      }
+    }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Import du PDF en cours...')),
       );
